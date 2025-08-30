@@ -168,23 +168,34 @@
                 <label>保持比例:</label>
                 <input type="checkbox" id="aspectRatio" checked>
             </div>
+            <div id="qualityContainer">
+                <label>品質 (JPEG/WebP):</label>
+                <select id="qualitySelect" onchange="toggleCustomInput('quality')">
+                    <option value="0.5">50%</option>
+                    <option value="0.7">70%</option>
+                    <option value="0.9" selected>90%</option>
+                    <option value="0.95">95%</option>
+                    <option value="custom">自訂</option>
+                </select>
+                <input type="number" id="qualityInput" min="0" max="100" class="hidden" placeholder="輸入品質 (0-100)">
+            </div>
         </div>
         
         <div id="base64Input" class="mode-specific" data-mode="base64">
             <label>輸入 Base64 字串:</label>
-            <textarea id="base64Text" placeholder="在此輸入 Base64 字串（例如 data:image/png;base64,... 或純 Base64 字串）"></textarea>
+            <textarea id="base64Text" placeholder="在此輸入 Base64 字串（例如 data:image/jpeg;base64,... 或純 Base64 字串）"></textarea>
         </div>
         
         <div>
             <label>輸出格式:</label>
-            <select id="formatSelect">
-                <option value="image/png" selected>PNG</option>
-                <option value="image/jpeg">JPEG</option>
+            <select id="formatSelect" onchange="toggleQualityContainer()">
+                <option value="image/jpeg" selected>JPEG</option>
+                <option value="image/png">PNG</option>
                 <option value="image/webp">WebP</option>
             </select>
         </div>
         
-        <p class="note">注意：支援圖片尺寸調整、格式轉換（預設 PNG）及 Base64 互轉。若 Base64 字串缺少前綴，工具會自動嘗試補充。HEIC/HEIF 輸入已支援。多檔案處理將自動打包為 ZIP 檔案。請勿將敏感 Base64 字串分享到不安全平台。</p>
+        <p class="note">注意：支援圖片尺寸調整、格式轉換（預設 JPEG，品質 90%）及 Base64 互轉。若 Base64 字串缺少前綴，工具會自動嘗試補充。HEIC/HEIF 輸入已支援。多檔案處理將自動打包為 ZIP 檔案。請勿將敏感 Base64 字串分享到不安全平台。</p>
         
         <div class="file-button-container">
             <button id="resizeButton" class="process-button mode-specific" data-mode="resize" onclick="processResize()">調整尺寸與格式</button>
@@ -234,6 +245,7 @@
             document.getElementById('downloadButton').style.display = 'none';
             if (mode === 'resize') {
                 toggleDimensionInputs();
+                toggleQualityContainer();
             }
         }
 
@@ -435,6 +447,13 @@
             updateDimensions();
         }
 
+        function toggleQualityContainer() {
+            const format = document.getElementById('formatSelect').value;
+            const qualityContainer = document.getElementById('qualityContainer');
+            qualityContainer.style.display = format === 'image/png' ? 'none' : 'block';
+            updateFileList();
+        }
+
         function updateDimensionInputs() {
             if (!originalImages[0]) return;
             const widthSelect = document.getElementById('widthSelect');
@@ -490,6 +509,7 @@
         document.getElementById('heightSelect').addEventListener('change', updateDimensions);
         document.getElementById('dimensionMode').addEventListener('change', toggleDimensionInputs);
         document.getElementById('aspectRatio').addEventListener('change', updateDimensions);
+        document.getElementById('qualitySelect').addEventListener('change', () => toggleCustomInput('quality'));
 
         async function processResize() {
             if (originalImages.length === 0 || !originalImages.some(item => item.type === 'image')) {
@@ -504,6 +524,9 @@
             const widthInput = parseInt(document.getElementById('widthInput').value);
             const heightInput = parseInt(document.getElementById('heightInput').value);
             const aspectRatio = document.getElementById('aspectRatio').checked;
+            const qualitySelect = document.getElementById('qualitySelect').value;
+            const qualityInput = parseInt(document.getElementById('qualityInput').value);
+            const quality = qualitySelect === 'custom' ? (qualityInput / 100) || 0.9 : parseFloat(qualitySelect);
 
             const zip = new JSZip();
             processedBlobs = [];
@@ -537,7 +560,7 @@
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
 
-                const blob = await new Promise(resolve => canvas.toBlob(resolve, format, format === 'image/png' ? 1.0 : 0.9));
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, format, format === 'image/png' ? 1.0 : quality));
                 const originalName = item.file.name.split('.').slice(0, -1).join('.');
                 const extension = format.split('/')[1];
                 const newFileName = `${originalName}_${width}x${height}.${extension}`;
@@ -614,6 +637,9 @@
         async function processBase64ToImage() {
             let base64String = document.getElementById('base64Text').value.trim();
             const format = document.getElementById('formatSelect').value;
+            const qualitySelect = document.getElementById('qualitySelect').value;
+            const qualityInput = parseInt(document.getElementById('qualityInput').value);
+            const quality = qualitySelect === 'custom' ? (qualityInput / 100) || 0.9 : parseFloat(qualitySelect);
             const base64Files = originalImages.filter(item => item.type === 'base64');
             const prefixes = [
                 'data:image/jpeg;base64,',
@@ -651,7 +677,7 @@
                         canvas.height = img.height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0);
-                        const blob = await new Promise(resolve => canvas.toBlob(resolve, format, format === 'image/png' ? 1.0 : 0.9));
+                        const blob = await new Promise(resolve => canvas.toBlob(resolve, format, format === 'image/png' ? 1.0 : quality));
                         const fileName = `converted_image_${Date.now()}.${format.split('/')[1]}`;
                         processedBlobs.push({ blob, name: fileName });
 
@@ -690,7 +716,7 @@
                         canvas.height = img.height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0);
-                        const blob = await new Promise(resolve => canvas.toBlob(resolve, format, format === 'image/png' ? 1.0 : 0.9));
+                        const blob = await new Promise(resolve => canvas.toBlob(resolve, format, format === 'image/png' ? 1.0 : quality));
                         const originalName = item.file.name.split('.').slice(0, -1).join('.');
                         const extension = format.split('/')[1];
                         const newFileName = `${originalName}.${extension}`;
