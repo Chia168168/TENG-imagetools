@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TENG 圖片處理工具 v1.4</title>
+    <title>TENG 圖片處理工具 v1.5</title>
     <script src="https://unpkg.com/heic2any@0.0.4/dist/heic2any.min.js"></script>
     <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
@@ -95,11 +95,11 @@
         .controls div {
             margin: 5px;
         }
-        .mode-buttons, .dimension-buttons, .size-buttons {
+        .mode-buttons, .dimension-buttons, .size-buttons, .quality-buttons, .format-buttons {
             display: flex;
             gap: 10px;
         }
-        .mode-button, .dimension-button, .size-button {
+        .mode-button, .dimension-button, .size-button, .quality-button, .format-button {
             font-size: 16px;
             padding: 8px 16px;
             cursor: pointer;
@@ -107,7 +107,7 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
-        .mode-button.active, .dimension-button.active, .size-button.active {
+        .mode-button.active, .dimension-button.active, .size-button.active, .quality-button.active, .format-button.active {
             background-color: #d0d0d0;
             border-color: #999;
         }
@@ -148,7 +148,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>TENG 圖片處理工具 v1.4</h1>
+        <h1>TENG 圖片處理工具 v1.5</h1>
         
         <div>
             <label>選擇處理模式:</label>
@@ -222,13 +222,13 @@
             </div>
             <div id="qualityContainer">
                 <label>品質 (JPEG/WebP):</label>
-                <select id="qualitySelect" onchange="toggleCustomInput('quality')">
-                    <option value="0.5">50%</option>
-                    <option value="0.7">70%</option>
-                    <option value="0.9" selected>90%</option>
-                    <option value="0.95">95%</option>
-                    <option value="custom">自訂</option>
-                </select>
+                <div class="quality-buttons">
+                    <button class="quality-button" data-value="0.5" onclick="setQuality('0.5')">50%</button>
+                    <button class="quality-button" data-value="0.7" onclick="setQuality('0.7')">70%</button>
+                    <button class="quality-button active" data-value="0.9" onclick="setQuality('0.9')">90%</button>
+                    <button class="quality-button" data-value="0.95" onclick="setQuality('0.95')">95%</button>
+                    <button class="quality-button" data-value="custom" onclick="setQuality('custom')">自訂</button>
+                </div>
                 <input type="number" id="qualityInput" min="0" max="100" class="hidden" placeholder="輸入品質 (0-100)">
             </div>
         </div>
@@ -240,14 +240,14 @@
         
         <div>
             <label>輸出格式:</label>
-            <select id="formatSelect" onchange="toggleQualityContainer()">
-                <option value="image/jpeg" selected>JPEG</option>
-                <option value="image/png">PNG</option>
-                <option value="image/webp">WebP</option>
-            </select>
+            <div class="format-buttons">
+                <button class="format-button active" data-value="image/jpeg" onclick="setFormat('image/jpeg')">JPEG</button>
+                <button class="format-button" data-value="image/png" onclick="setFormat('image/png')">PNG</button>
+                <button class="format-button" data-value="image/webp" onclick="setFormat('image/webp')">WebP</button>
+            </div>
         </div>
         
-        <p class="note">注意：支援圖片尺寸調整、格式轉換（預設 JPEG，品質 90%）及 Base64 互轉。若 Base64 字串缺少前綴，工具會自動嘗試補充。HEIC/HEIF 輸入已支援。多檔案處理將自動打包為 ZIP 檔案。請勿將敏感 Base64 字串分享到不安全平台。</p>
+        <p class="note">注意：支援圖片尺寸調整、格式轉換（尺寸調整模式預設 JPEG，Base64 模式預設 PNG，品質 90%）及 Base64 互轉。若 Base64 字串缺少前綴，工具會自動嘗試補充。HEIC/HEIF 輸入已支援。多檔案處理將自動打包為 ZIP 檔案。請勿將敏感 Base64 字串分享到不安全平台。</p>
         
         <div class="file-button-container">
             <button id="resizeButton" class="process-button mode-specific" data-mode="resize" onclick="processResize()">調整尺寸與格式</button>
@@ -288,6 +288,8 @@
         let currentDimensionMode = 'width';
         let currentWidthValue = '1024';
         let currentHeightValue = '1024';
+        let currentQualityValue = '0.9';
+        let currentFormatValue = 'image/jpeg';
 
         // 防抖函數
         function debounce(func, wait) {
@@ -309,10 +311,15 @@
             document.querySelectorAll('.mode-specific').forEach(el => {
                 el.style.display = el.dataset.mode === mode ? 'block' : 'none';
             });
+            // 設定模式特定的輸出格式預設值
+            currentFormatValue = mode === 'resize' ? 'image/jpeg' : 'image/png';
+            document.querySelectorAll('.format-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.value === currentFormatValue);
+            });
+            toggleQualityContainer();
             clearFiles();
             if (mode === 'resize') {
                 switchDimensionMode(currentDimensionMode);
-                toggleQualityContainer();
             }
         }
 
@@ -345,6 +352,27 @@
             updateFileList();
         }
 
+        // 設置品質值
+        function setQuality(value) {
+            document.querySelectorAll('.quality-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.value === value);
+            });
+            const input = document.getElementById('qualityInput');
+            input.classList.toggle('hidden', value !== 'custom');
+            currentQualityValue = value;
+            updateFileList();
+        }
+
+        // 設置輸出格式
+        function setFormat(value) {
+            document.querySelectorAll('.format-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.value === value);
+            });
+            currentFormatValue = value;
+            toggleQualityContainer();
+            updateFileList();
+        }
+
         // 清空檔案
         function clearFiles() {
             originalImages = [];
@@ -358,11 +386,20 @@
             document.getElementById('progressContainer').style.display = 'none';
             currentWidthValue = '1024';
             currentHeightValue = '1024';
+            currentQualityValue = '0.9';
             document.querySelectorAll('.size-button').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.value === '1024');
             });
+            document.querySelectorAll('.quality-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.value === '0.9');
+            });
             document.getElementById('widthInput').classList.add('hidden');
             document.getElementById('heightInput').classList.add('hidden');
+            document.getElementById('qualityInput').classList.add('hidden');
+            // 根據當前模式重設輸出格式
+            document.querySelectorAll('.format-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.value === currentFormatValue);
+            });
             updateFileList();
         }
 
@@ -555,9 +592,8 @@
         }
 
         function toggleQualityContainer() {
-            const format = document.getElementById('formatSelect').value;
             const qualityContainer = document.getElementById('qualityContainer');
-            qualityContainer.style.display = format === 'image/png' ? 'none' : 'block';
+            qualityContainer.style.display = currentFormatValue === 'image/png' ? 'none' : 'block';
             updateFileList();
         }
 
@@ -630,15 +666,8 @@
         const debouncedUpdateDimensions = debounce(updateDimensions, 300);
         document.getElementById('widthInput').addEventListener('input', debouncedUpdateDimensions);
         document.getElementById('heightInput').addEventListener('input', debouncedUpdateDimensions);
+        document.getElementById('qualityInput').addEventListener('input', updateFileList);
         document.getElementById('aspectRatio').addEventListener('change', updateDimensions);
-        document.getElementById('qualitySelect').addEventListener('change', () => toggleCustomInput('quality'));
-
-        function toggleCustomInput(type) {
-            const select = document.getElementById(`${type}Select`);
-            const input = document.getElementById(`${type}Input`);
-            input.classList.toggle('hidden', select.value !== 'custom');
-            updateFileList();
-        }
 
         function updateProgress(current, total) {
             const progressContainer = document.getElementById('progressContainer');
@@ -656,13 +685,12 @@
                 return;
             }
 
-            const format = document.getElementById('formatSelect').value;
+            const format = currentFormatValue;
             const widthInput = parseInt(document.getElementById('widthInput').value);
             const heightInput = parseInt(document.getElementById('heightInput').value);
             const aspectRatio = document.getElementById('aspectRatio').checked;
-            const qualitySelect = document.getElementById('qualitySelect').value;
             const qualityInput = parseInt(document.getElementById('qualityInput').value);
-            const quality = qualitySelect === 'custom' ? (qualityInput / 100) || 0.9 : parseFloat(qualitySelect);
+            const quality = currentQualityValue === 'custom' ? (qualityInput / 100) || 0.9 : parseFloat(currentQualityValue);
 
             const zip = new JSZip();
             processedBlobs = [];
@@ -796,10 +824,9 @@
 
         async function processBase64ToImage() {
             let base64String = document.getElementById('base64Text').value.trim();
-            const format = document.getElementById('formatSelect').value;
-            const qualitySelect = document.getElementById('qualitySelect').value;
+            const format = currentFormatValue;
             const qualityInput = parseInt(document.getElementById('qualityInput').value);
-            const quality = qualitySelect === 'custom' ? (qualityInput / 100) || 0.9 : parseFloat(qualitySelect);
+            const quality = currentQualityValue === 'custom' ? (qualityInput / 100) || 0.9 : parseFloat(currentQualityValue);
             const base64Files = originalImages.filter(item => item.type === 'base64');
             const prefixes = [
                 'data:image/jpeg;base64,',
