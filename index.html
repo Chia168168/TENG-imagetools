@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TENG 圖片處理工具 v1.3</title>
-    <!-- 使用 CDN 載入外部庫 -->
+    <title>TENG 圖片處理工具 v1.4</title>
     <script src="https://unpkg.com/heic2any@0.0.4/dist/heic2any.min.js"></script>
     <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
@@ -96,11 +95,11 @@
         .controls div {
             margin: 5px;
         }
-        .mode-buttons, .dimension-buttons {
+        .mode-buttons, .dimension-buttons, .size-buttons {
             display: flex;
             gap: 10px;
         }
-        .mode-button, .dimension-button {
+        .mode-button, .dimension-button, .size-button {
             font-size: 16px;
             padding: 8px 16px;
             cursor: pointer;
@@ -108,7 +107,7 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
-        .mode-button.active, .dimension-button.active {
+        .mode-button.active, .dimension-button.active, .size-button.active {
             background-color: #d0d0d0;
             border-color: #999;
         }
@@ -149,7 +148,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>TENG 圖片處理工具 v1.3</h1>
+        <h1>TENG 圖片處理工具 v1.4</h1>
         
         <div>
             <label>選擇處理模式:</label>
@@ -197,25 +196,25 @@
             </div>
             <div id="widthContainer">
                 <label>寬度 (px):</label>
-                <select id="widthSelect" onchange="toggleCustomInput('width'); updateDimensions();">
-                    <option value="256">256</option>
-                    <option value="512">512</option>
-                    <option value="1024" selected>1024</option>
-                    <option value="1280">1280</option>
-                    <option value="custom">自訂</option>
-                </select>
-                <input type="number" id="widthInput" min="1" class="hidden" placeholder="輸入寬度" oninput="updateDimensions()">
+                <div class="size-buttons">
+                    <button class="size-button" data-value="256" onclick="setSize('width', '256')">256</button>
+                    <button class="size-button" data-value="512" onclick="setSize('width', '512')">512</button>
+                    <button class="size-button active" data-value="1024" onclick="setSize('width', '1024')">1024</button>
+                    <button class="size-button" data-value="1280" onclick="setSize('width', '1280')">1280</button>
+                    <button class="size-button" data-value="custom" onclick="setSize('width', 'custom')">自訂</button>
+                </div>
+                <input type="number" id="widthInput" min="1" class="hidden" placeholder="輸入寬度">
             </div>
             <div id="heightContainer" class="hidden">
                 <label>高度 (px):</label>
-                <select id="heightSelect" onchange="toggleCustomInput('height'); updateDimensions();">
-                    <option value="256">256</option>
-                    <option value="512">512</option>
-                    <option value="1024" selected>1024</option>
-                    <option value="1280">1280</option>
-                    <option value="custom">自訂</option>
-                </select>
-                <input type="number" id="heightInput" min="1" class="hidden" placeholder="輸入高度" oninput="updateDimensions()">
+                <div class="size-buttons">
+                    <button class="size-button" data-value="256" onclick="setSize('height', '256')">256</button>
+                    <button class="size-button" data-value="512" onclick="setSize('height', '512')">512</button>
+                    <button class="size-button active" data-value="1024" onclick="setSize('height', '1024')">1024</button>
+                    <button class="size-button" data-value="1280" onclick="setSize('height', '1280')">1280</button>
+                    <button class="size-button" data-value="custom" onclick="setSize('height', 'custom')">自訂</button>
+                </div>
+                <input type="number" id="heightInput" min="1" class="hidden" placeholder="輸入高度">
             </div>
             <div>
                 <label>保持比例:</label>
@@ -287,6 +286,17 @@
         let downloadBlob = null;
         let downloadFileName = '';
         let currentDimensionMode = 'width';
+        let currentWidthValue = '1024';
+        let currentHeightValue = '1024';
+
+        // 防抖函數
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
 
         // 初始化模式
         switchMode('resize');
@@ -318,6 +328,23 @@
             updateFileList();
         }
 
+        // 設置寬度或高度值
+        function setSize(type, value) {
+            const buttons = document.querySelectorAll(`#${type}Container .size-button`);
+            buttons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.value === value);
+            });
+            const input = document.getElementById(`${type}Input`);
+            input.classList.toggle('hidden', value !== 'custom');
+            if (type === 'width') {
+                currentWidthValue = value;
+            } else {
+                currentHeightValue = value;
+            }
+            updateDimensions();
+            updateFileList();
+        }
+
         // 清空檔案
         function clearFiles() {
             originalImages = [];
@@ -329,6 +356,13 @@
             document.getElementById('base64Text').value = '';
             document.getElementById('downloadButton').style.display = 'none';
             document.getElementById('progressContainer').style.display = 'none';
+            currentWidthValue = '1024';
+            currentHeightValue = '1024';
+            document.querySelectorAll('.size-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.value === '1024');
+            });
+            document.getElementById('widthInput').classList.add('hidden');
+            document.getElementById('heightInput').classList.add('hidden');
             updateFileList();
         }
 
@@ -491,15 +525,13 @@
                 listItem.className = 'file-item';
                 let text = `${item.file.name} (${item.type === 'image' ? '圖片' : 'Base64'})`;
                 if (mode === 'resize' && item.type === 'image') {
-                    const widthSelect = document.getElementById('widthSelect').value;
-                    const heightSelect = document.getElementById('heightSelect').value;
                     const widthInput = parseInt(document.getElementById('widthInput').value) || item.img.width;
                     const heightInput = parseInt(document.getElementById('heightInput').value) || item.img.height;
                     const dimensionMode = currentDimensionMode;
                     const aspectRatio = document.getElementById('aspectRatio').checked;
 
-                    let width = widthSelect === 'custom' ? widthInput : parseInt(widthSelect);
-                    let height = heightSelect === 'custom' ? heightInput : parseInt(heightSelect);
+                    let width = currentWidthValue === 'custom' ? widthInput : parseInt(currentWidthValue);
+                    let height = currentHeightValue === 'custom' ? heightInput : parseInt(currentHeightValue);
 
                     if (aspectRatio) {
                         const ratio = item.img.height / item.img.width;
@@ -522,20 +554,6 @@
             });
         }
 
-        function toggleDimensionInputs() {
-            document.getElementById('widthContainer').classList.toggle('hidden', currentDimensionMode === 'height');
-            document.getElementById('heightContainer').classList.toggle('hidden', currentDimensionMode === 'width');
-            updateDimensionInputs();
-            updateFileList();
-        }
-
-        function toggleCustomInput(type) {
-            const select = document.getElementById(`${type}Select`);
-            const input = document.getElementById(`${type}Input`);
-            input.classList.toggle('hidden', select.value !== 'custom');
-            updateDimensions();
-        }
-
         function toggleQualityContainer() {
             const format = document.getElementById('formatSelect').value;
             const qualityContainer = document.getElementById('qualityContainer');
@@ -545,60 +563,82 @@
 
         function updateDimensionInputs() {
             if (!originalImages[0]) return;
-            const widthSelect = document.getElementById('widthSelect');
-            const heightSelect = document.getElementById('heightSelect');
             const width = originalImages[0].img.width;
             const height = originalImages[0].img.height;
-            const options = [256, 512, 1024, 1280];
-            widthSelect.value = options.includes(width) ? width : '1024';
-            heightSelect.value = options.includes(height) ? height : '1024';
-            toggleCustomInput('width');
-            toggleCustomInput('height');
+            const options = ['256', '512', '1024', '1280'];
+            currentWidthValue = options.includes(width.toString()) ? width.toString() : '1024';
+            currentHeightValue = options.includes(height.toString()) ? height.toString() : '1024';
+            document.querySelectorAll('#widthContainer .size-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.value === currentWidthValue);
+            });
+            document.querySelectorAll('#heightContainer .size-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.value === currentHeightValue);
+            });
+            document.getElementById('widthInput').classList.toggle('hidden', currentWidthValue !== 'custom');
+            document.getElementById('heightInput').classList.toggle('hidden', currentHeightValue !== 'custom');
             updateDimensions();
         }
 
         function updateDimensions() {
             if (!originalImages[0]) return;
 
-            const widthSelect = document.getElementById('widthSelect').value;
-            const heightSelect = document.getElementById('heightSelect').value;
-            const widthInput = parseInt(document.getElementById('widthInput').value);
-            const heightInput = parseInt(document.getElementById('heightInput').value);
+            const widthInput = parseInt(document.getElementById('widthInput').value) || originalImages[0].img.width;
+            const heightInput = parseInt(document.getElementById('heightInput').value) || originalImages[0].img.height;
             const aspectRatio = document.getElementById('aspectRatio').checked;
 
-            let width = widthSelect === 'custom' ? (widthInput || originalImages[0].img.width) : parseInt(widthSelect);
-            let height = heightSelect === 'custom' ? (heightInput || originalImages[0].img.height) : parseInt(heightSelect);
+            let width = currentWidthValue === 'custom' ? widthInput : parseInt(currentWidthValue);
+            let height = currentHeightValue === 'custom' ? heightInput : parseInt(currentHeightValue);
 
             if (aspectRatio) {
                 const ratio = originalImages[0].img.height / originalImages[0].img.width;
                 if (currentDimensionMode === 'width' && width > 0) {
-                    document.getElementById('heightSelect').value = 'custom';
+                    currentHeightValue = 'custom';
                     document.getElementById('heightInput').value = Math.round(width * ratio);
-                    toggleCustomInput('height');
+                    document.querySelectorAll('#heightContainer .size-button').forEach(btn => {
+                        btn.classList.toggle('active', btn.dataset.value === 'custom');
+                    });
+                    document.getElementById('heightInput').classList.remove('hidden');
                 } else if (currentDimensionMode === 'height' && height > 0) {
-                    document.getElementById('widthSelect').value = 'custom';
+                    currentWidthValue = 'custom';
                     document.getElementById('widthInput').value = Math.round(height / ratio);
-                    toggleCustomInput('width');
+                    document.querySelectorAll('#widthContainer .size-button').forEach(btn => {
+                        btn.classList.toggle('active', btn.dataset.value === 'custom');
+                    });
+                    document.getElementById('widthInput').classList.remove('hidden');
                 } else if (currentDimensionMode === 'both') {
                     if (width > 0) {
-                        document.getElementById('heightSelect').value = 'custom';
+                        currentHeightValue = 'custom';
                         document.getElementById('heightInput').value = Math.round(width * ratio);
-                        toggleCustomInput('height');
+                        document.querySelectorAll('#heightContainer .size-button').forEach(btn => {
+                            btn.classList.toggle('active', btn.dataset.value === 'custom');
+                        });
+                        document.getElementById('heightInput').classList.remove('hidden');
                     } else if (height > 0) {
-                        document.getElementById('widthSelect').value = 'custom';
+                        currentWidthValue = 'custom';
                         document.getElementById('widthInput').value = Math.round(height / ratio);
-                        toggleCustomInput('width');
+                        document.querySelectorAll('#widthContainer .size-button').forEach(btn => {
+                            btn.classList.toggle('active', btn.dataset.value === 'custom');
+                        });
+                        document.getElementById('widthInput').classList.remove('hidden');
                     }
                 }
             }
             updateFileList();
         }
 
-        document.getElementById('widthInput').addEventListener('input', updateDimensions);
-        document.getElementById('heightInput').addEventListener('input', updateDimensions);
-        document.getElementById('widthSelect').addEventListener('change', updateDimensions);
-        document.getElementById('heightSelect').addEventListener('change', updateDimensions);
+        // 防抖處理輸入框
+        const debouncedUpdateDimensions = debounce(updateDimensions, 300);
+        document.getElementById('widthInput').addEventListener('input', debouncedUpdateDimensions);
+        document.getElementById('heightInput').addEventListener('input', debouncedUpdateDimensions);
+        document.getElementById('aspectRatio').addEventListener('change', updateDimensions);
         document.getElementById('qualitySelect').addEventListener('change', () => toggleCustomInput('quality'));
+
+        function toggleCustomInput(type) {
+            const select = document.getElementById(`${type}Select`);
+            const input = document.getElementById(`${type}Input`);
+            input.classList.toggle('hidden', select.value !== 'custom');
+            updateFileList();
+        }
 
         function updateProgress(current, total) {
             const progressContainer = document.getElementById('progressContainer');
@@ -617,8 +657,6 @@
             }
 
             const format = document.getElementById('formatSelect').value;
-            const widthSelect = document.getElementById('widthSelect').value;
-            const heightSelect = document.getElementById('heightSelect').value;
             const widthInput = parseInt(document.getElementById('widthInput').value);
             const heightInput = parseInt(document.getElementById('heightInput').value);
             const aspectRatio = document.getElementById('aspectRatio').checked;
@@ -641,16 +679,16 @@
 
                 const img = item.img;
                 const canvas = document.createElement('canvas');
-                let width = widthSelect === 'custom' ? (widthInput || img.width) : parseInt(widthSelect);
-                let height = heightSelect === 'custom' ? (heightInput || img.height) : parseInt(heightSelect);
+                let width = currentWidthValue === 'custom' ? (widthInput || img.width) : parseInt(currentWidthValue);
+                let height = currentHeightValue === 'custom' ? (heightInput || img.height) : parseInt(currentHeightValue);
 
                 if (aspectRatio) {
                     const ratio = img.height / img.width;
-                    if (currentDimensionMode === 'width' && widthSelect !== '') {
+                    if (currentDimensionMode === 'width' && currentWidthValue !== '') {
                         height = Math.round(width * ratio);
-                    } else if (currentDimensionMode === 'height' && heightSelect !== '') {
+                    } else if (currentDimensionMode === 'height' && currentHeightValue !== '') {
                         width = Math.round(height / ratio);
-                    } else if (currentDimensionMode === 'both' && widthSelect !== '' && heightSelect !== '') {
+                    } else if (currentDimensionMode === 'both' && currentWidthValue !== '' && currentHeightValue !== '') {
                         height = Math.round(width * ratio);
                     } else if (!widthInput && !heightInput) {
                         width = img.width;
