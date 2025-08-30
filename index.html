@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TENG 圖片處理工具 v1.0</title>
-    <!-- 內嵌外部庫，直接包含於專案資料夾 -->
-    <script src="libs/heic2any.min.js"></script>
-    <script src="libs/jszip.min.js"></script>
-    <script src="libs/FileSaver.min.js"></script>
+    <!-- 使用外部 CDN 載入庫 -->
+    <script src="https://unpkg.com/heic2any@0.0.4/dist/heic2any.min.js"></script>
+    <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -232,6 +232,9 @@
             document.getElementById('base64OutputContainer').innerHTML = '';
             document.getElementById('base64Text').value = '';
             document.getElementById('downloadButton').style.display = 'none';
+            if (mode === 'resize') {
+                toggleDimensionInputs();
+            }
         }
 
         // 處理檔案輸入
@@ -311,6 +314,9 @@
                 thumbnail.dataset.index = index;
                 thumbnail.title = file.name;
                 document.getElementById('previewContainer').appendChild(thumbnail);
+                if (document.getElementById('modeSelect').value === 'resize') {
+                    updateDimensionInputs();
+                }
             };
             img.onerror = function() {
                 alert(`無法載入圖片：${file.name}，請確認檔案格式是否正確！`);
@@ -376,12 +382,41 @@
         function updateFileList() {
             const fileList = document.getElementById('fileList');
             fileList.innerHTML = '';
+            const mode = document.getElementById('modeSelect').value;
             document.getElementById('fileListHeader').textContent = `已選擇的檔案：${originalImages.length} 張`;
 
             originalImages.forEach((item, index) => {
                 const listItem = document.createElement('div');
                 listItem.className = 'file-item';
-                listItem.textContent = `${item.file.name} (${item.type === 'image' ? '圖片' : 'Base64'})`;
+                let text = `${item.file.name} (${item.type === 'image' ? '圖片' : 'Base64'})`;
+                if (mode === 'resize' && item.type === 'image') {
+                    const widthSelect = document.getElementById('widthSelect').value;
+                    const heightSelect = document.getElementById('heightSelect').value;
+                    const widthInput = parseInt(document.getElementById('widthInput').value);
+                    const heightInput = parseInt(document.getElementById('heightInput').value);
+                    const dimensionMode = document.getElementById('dimensionMode').value;
+                    const aspectRatio = document.getElementById('aspectRatio').checked;
+
+                    let width = widthSelect === 'custom' ? (widthInput || item.img.width) : parseInt(widthSelect);
+                    let height = heightSelect === 'custom' ? (heightInput || item.img.height) : parseInt(heightSelect);
+
+                    if (aspectRatio) {
+                        const ratio = item.img.height / item.img.width;
+                        if (dimensionMode === 'width') {
+                            height = Math.round(width * ratio);
+                        } else if (dimensionMode === 'height') {
+                            width = Math.round(height / ratio);
+                        } else if (dimensionMode === 'both') {
+                            height = Math.round(width * ratio);
+                        }
+                    }
+
+                    text += ` | 原尺寸: ${item.img.width}x${item.img.height}`;
+                    if (width && height) {
+                        text += ` | 調整後: ${width}x${height}`;
+                    }
+                }
+                listItem.textContent = text;
                 fileList.appendChild(listItem);
             });
         }
@@ -391,26 +426,14 @@
             document.getElementById('widthContainer').classList.toggle('hidden', mode === 'height');
             document.getElementById('heightContainer').classList.toggle('hidden', mode === 'width');
             updateDimensionInputs();
-            updateDimensions();
-            updateFileList();
         }
 
         function toggleCustomInput(type) {
             const select = document.getElementById(`${type}Select`);
             const input = document.getElementById(`${type}Input`);
             input.classList.toggle('hidden', select.value !== 'custom');
-            if (select.value !== 'custom') {
-                updateDimensions();
-            }
-            updateFileList();
+            updateDimensions();
         }
-
-        document.getElementById('widthInput').addEventListener('input', () => { updateDimensions(); updateFileList(); });
-        document.getElementById('heightInput').addEventListener('input', () => { updateDimensions(); updateFileList(); });
-        document.getElementById('widthSelect').addEventListener('change', () => { updateDimensions(); updateFileList(); });
-        document.getElementById('heightSelect').addEventListener('change', () => { updateDimensions(); updateFileList(); });
-        document.getElementById('dimensionMode').addEventListener('change', toggleDimensionInputs);
-        document.getElementById('aspectRatio').addEventListener('change', () => { updateDimensions(); updateFileList(); });
 
         function updateDimensionInputs() {
             if (!originalImages[0]) return;
@@ -423,6 +446,7 @@
             heightSelect.value = options.includes(height) ? height : '1024';
             toggleCustomInput('width');
             toggleCustomInput('height');
+            updateDimensions();
         }
 
         function updateDimensions() {
@@ -457,7 +481,15 @@
                     toggleCustomInput('width');
                 }
             }
+            updateFileList();
         }
+
+        document.getElementById('widthInput').addEventListener('input', updateDimensions);
+        document.getElementById('heightInput').addEventListener('input', updateDimensions);
+        document.getElementById('widthSelect').addEventListener('change', updateDimensions);
+        document.getElementById('heightSelect').addEventListener('change', updateDimensions);
+        document.getElementById('dimensionMode').addEventListener('change', toggleDimensionInputs);
+        document.getElementById('aspectRatio').addEventListener('change', updateDimensions);
 
         async function processResize() {
             if (originalImages.length === 0 || !originalImages.some(item => item.type === 'image')) {
@@ -489,11 +521,11 @@
                 if (aspectRatio) {
                     const ratio = img.height / img.width;
                     if (mode === 'width' && widthSelect !== '') {
-                        height = Math.round(width * (img.height / img.width));
+                        height = Math.round(width * ratio);
                     } else if (mode === 'height' && heightSelect !== '') {
-                        width = Math.round(height * (img.width / img.height));
+                        width = Math.round(height / ratio);
                     } else if (mode === 'both' && widthSelect !== '' && heightSelect !== '') {
-                        height = Math.round(width * (img.height / img.width));
+                        height = Math.round(width * ratio);
                     } else if (!widthInput && !heightInput) {
                         width = img.width;
                         height = img.height;
