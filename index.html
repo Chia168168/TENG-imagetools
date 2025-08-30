@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TENG 圖片處理工具 v1.0</title>
-    <!-- 內嵌外部庫 -->
+    <!-- 內嵌外部庫，直接包含於專案資料夾 -->
     <script src="libs/heic2any.min.js"></script>
     <script src="libs/jszip.min.js"></script>
     <script src="libs/FileSaver.min.js"></script>
@@ -93,6 +93,9 @@
         .mode-specific {
             display: none;
         }
+        .controls div {
+            margin: 5px;
+        }
     </style>
 </head>
 <body>
@@ -130,12 +133,40 @@
             <div id="fileList"></div>
         </div>
         
-        <div id="resizeOptions" class="mode-specific" data-mode="resize">
-            <label>輸出尺寸:</label>
+        <div id="resizeOptions" class="mode-specific controls" data-mode="resize">
             <div>
-                <input type="number" id="widthInput" placeholder="寬度 (px)" min="1">
-                <input type="number" id="heightInput" placeholder="高度 (px)" min="1">
-                <label><input type="checkbox" id="maintainAspectRatio" checked> 保持比例</label>
+                <label>尺寸設定:</label>
+                <select id="dimensionMode" onchange="toggleDimensionInputs()">
+                    <option value="width" selected>固定寬度</option>
+                    <option value="height">固定高度</option>
+                    <option value="both">寬度與高度</option>
+                </select>
+            </div>
+            <div id="widthContainer">
+                <label>寬度 (px):</label>
+                <select id="widthSelect" onchange="toggleCustomInput('width')">
+                    <option value="256">256</option>
+                    <option value="512">512</option>
+                    <option value="1024" selected>1024</option>
+                    <option value="1280">1280</option>
+                    <option value="custom">自訂</option>
+                </select>
+                <input type="number" id="widthInput" min="1" class="hidden" placeholder="輸入寬度">
+            </div>
+            <div id="heightContainer" class="hidden">
+                <label>高度 (px):</label>
+                <select id="heightSelect" onchange="toggleCustomInput('height')">
+                    <option value="256">256</option>
+                    <option value="512">512</option>
+                    <option value="1024" selected>1024</option>
+                    <option value="1280">1280</option>
+                    <option value="custom">自訂</option>
+                </select>
+                <input type="number" id="heightInput" min="1" class="hidden" placeholder="輸入高度">
+            </div>
+            <div>
+                <label>保持比例:</label>
+                <input type="checkbox" id="aspectRatio" checked>
             </div>
         </div>
         
@@ -355,21 +386,92 @@
             });
         }
 
+        function toggleDimensionInputs() {
+            const mode = document.getElementById('dimensionMode').value;
+            document.getElementById('widthContainer').classList.toggle('hidden', mode === 'height');
+            document.getElementById('heightContainer').classList.toggle('hidden', mode === 'width');
+            updateDimensionInputs();
+            updateDimensions();
+            updateFileList();
+        }
+
+        function toggleCustomInput(type) {
+            const select = document.getElementById(`${type}Select`);
+            const input = document.getElementById(`${type}Input`);
+            input.classList.toggle('hidden', select.value !== 'custom');
+            if (select.value !== 'custom') {
+                updateDimensions();
+            }
+            updateFileList();
+        }
+
+        document.getElementById('widthInput').addEventListener('input', () => { updateDimensions(); updateFileList(); });
+        document.getElementById('heightInput').addEventListener('input', () => { updateDimensions(); updateFileList(); });
+        document.getElementById('widthSelect').addEventListener('change', () => { updateDimensions(); updateFileList(); });
+        document.getElementById('heightSelect').addEventListener('change', () => { updateDimensions(); updateFileList(); });
+        document.getElementById('dimensionMode').addEventListener('change', toggleDimensionInputs);
+        document.getElementById('aspectRatio').addEventListener('change', () => { updateDimensions(); updateFileList(); });
+
+        function updateDimensionInputs() {
+            if (!originalImages[0]) return;
+            const widthSelect = document.getElementById('widthSelect');
+            const heightSelect = document.getElementById('heightSelect');
+            const width = originalImages[0].img.width;
+            const height = originalImages[0].img.height;
+            const options = [256, 512, 1024, 1280];
+            widthSelect.value = options.includes(width) ? width : '1024';
+            heightSelect.value = options.includes(height) ? height : '1024';
+            toggleCustomInput('width');
+            toggleCustomInput('height');
+        }
+
+        function updateDimensions() {
+            if (!originalImages[0] || !document.getElementById('aspectRatio').checked) return;
+
+            const mode = document.getElementById('dimensionMode').value;
+            const widthSelect = document.getElementById('widthSelect').value;
+            const heightSelect = document.getElementById('heightSelect').value;
+            const widthInput = parseInt(document.getElementById('widthInput').value);
+            const heightInput = parseInt(document.getElementById('heightInput').value);
+            const ratio = originalImages[0].img.height / originalImages[0].img.width;
+
+            let width = widthSelect === 'custom' ? widthInput : parseInt(widthSelect);
+            let height = heightSelect === 'custom' ? heightInput : parseInt(heightSelect);
+
+            if (mode === 'width' && width > 0) {
+                document.getElementById('heightSelect').value = 'custom';
+                document.getElementById('heightInput').value = Math.round(width * ratio);
+                toggleCustomInput('height');
+            } else if (mode === 'height' && height > 0) {
+                document.getElementById('widthSelect').value = 'custom';
+                document.getElementById('widthInput').value = Math.round(height / ratio);
+                toggleCustomInput('width');
+            } else if (mode === 'both') {
+                if (width > 0) {
+                    document.getElementById('heightSelect').value = 'custom';
+                    document.getElementById('heightInput').value = Math.round(width * ratio);
+                    toggleCustomInput('height');
+                } else if (height > 0) {
+                    document.getElementById('widthSelect').value = 'custom';
+                    document.getElementById('widthInput').value = Math.round(height / ratio);
+                    toggleCustomInput('width');
+                }
+            }
+        }
+
         async function processResize() {
             if (originalImages.length === 0 || !originalImages.some(item => item.type === 'image')) {
                 alert('請先選擇圖片檔案！');
                 return;
             }
 
-            const width = parseInt(document.getElementById('widthInput').value) || undefined;
-            const height = parseInt(document.getElementById('heightInput').value) || undefined;
-            const maintainAspectRatio = document.getElementById('maintainAspectRatio').checked;
             const format = document.getElementById('formatSelect').value;
-
-            if (!width && !height) {
-                alert('請至少輸入寬度或高度！');
-                return;
-            }
+            const mode = document.getElementById('dimensionMode').value;
+            const widthSelect = document.getElementById('widthSelect').value;
+            const heightSelect = document.getElementById('heightSelect').value;
+            const widthInput = parseInt(document.getElementById('widthInput').value);
+            const heightInput = parseInt(document.getElementById('heightInput').value);
+            const aspectRatio = document.getElementById('aspectRatio').checked;
 
             const zip = new JSZip();
             processedBlobs = [];
@@ -381,30 +483,37 @@
 
                 const img = item.img;
                 const canvas = document.createElement('canvas');
-                let targetWidth = width || img.width;
-                let targetHeight = height || img.height;
+                let width = widthSelect === 'custom' ? (widthInput || img.width) : parseInt(widthSelect);
+                let height = heightSelect === 'custom' ? (heightInput || img.height) : parseInt(heightSelect);
 
-                if (maintainAspectRatio) {
-                    if (width && !height) {
-                        targetHeight = Math.round((width / img.width) * img.height);
-                    } else if (height && !width) {
-                        targetWidth = Math.round((height / img.height) * img.width);
-                    } else if (width && height) {
-                        const scale = Math.min(width / img.width, height / img.height);
-                        targetWidth = Math.round(img.width * scale);
-                        targetHeight = Math.round(img.height * scale);
+                if (aspectRatio) {
+                    const ratio = img.height / img.width;
+                    if (mode === 'width' && widthSelect !== '') {
+                        height = Math.round(width * (img.height / img.width));
+                    } else if (mode === 'height' && heightSelect !== '') {
+                        width = Math.round(height * (img.width / img.height));
+                    } else if (mode === 'both' && widthSelect !== '' && heightSelect !== '') {
+                        height = Math.round(width * (img.height / img.width));
+                    } else if (!widthInput && !heightInput) {
+                        width = img.width;
+                        height = img.height;
                     }
                 }
 
-                canvas.width = targetWidth;
-                canvas.height = targetHeight;
+                canvas.width = width;
+                canvas.height = height;
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+                ctx.drawImage(img, 0, 0, width, height);
 
                 const blob = await new Promise(resolve => canvas.toBlob(resolve, format, format === 'image/png' ? 1.0 : 0.9));
+                const originalName = item.file.name.split('.').slice(0, -1).join('.');
                 const extension = format.split('/')[1];
-                const newFileName = `${item.file.name.split('.').slice(0, -1).join('.')}.${extension}`;
+                const newFileName = `${originalName}_${width}x${height}.${extension}`;
                 processedBlobs.push({ blob, name: newFileName });
+
+                if (originalImages.filter(item => item.type === 'image').length > 1) {
+                    zip.file(newFileName, blob);
+                }
 
                 const thumbnail = document.createElement('img');
                 thumbnail.src = URL.createObjectURL(blob);
@@ -412,10 +521,6 @@
                 thumbnail.dataset.index = i;
                 thumbnail.title = newFileName;
                 document.getElementById('previewContainer').appendChild(thumbnail);
-
-                if (originalImages.filter(item => item.type === 'image').length > 1) {
-                    zip.file(newFileName, blob);
-                }
             }
 
             const downloadButton = document.getElementById('downloadButton');
@@ -424,11 +529,11 @@
             if (originalImages.filter(item => item.type === 'image').length === 1) {
                 downloadBlob = processedBlobs[0].blob;
                 downloadFileName = processedBlobs[0].name;
-                downloadButton.textContent = '下載轉換後的圖片';
+                downloadButton.textContent = '下載處理後的圖片';
             } else {
                 downloadBlob = await zip.generateAsync({ type: 'blob' });
-                downloadFileName = 'converted_images.zip';
-                downloadButton.textContent = '下載轉換後的圖片 ZIP 壓縮檔';
+                downloadFileName = 'processed_images.zip';
+                downloadButton.textContent = '下載 ZIP 壓縮檔';
             }
         }
 
