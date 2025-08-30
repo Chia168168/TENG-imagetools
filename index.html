@@ -9,13 +9,371 @@
     <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
     <style>
-        /* 與 v1.6 相同，省略以節省空間 */
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #F5F8FA;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        h1 {
+            color: #0033A0;
+            font-size: 24px;
+            margin: 0 0 15px;
+            font-weight: 500;
+        }
+        .section {
+            background-color: #E6F0FA;
+            border: 1px solid #005B99;
+            border-radius: 6px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .file-button-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .file-button, .clear-button {
+            font-size: 14px;
+            padding: 8px 16px;
+            cursor: pointer;
+            background-color: #E6F0FA;
+            border: 1px solid #005B99;
+            border-radius: 4px;
+            color: #005B99;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .file-button:hover, .clear-button:hover {
+            background-color: #005B99;
+            color: #FFFFFF;
+        }
+        .process-button {
+            font-size: 18px;
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #E6F0FA;
+            border: 1px solid #005B99;
+            border-radius: 4px;
+            color: #005B99;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .process-button:hover {
+            background-color: #005B99;
+            color: #FFFFFF;
+        }
+        #downloadButton {
+            font-size: 16px;
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #005B99;
+            border: none;
+            border-radius: 4px;
+            color: #FFFFFF;
+            display: none;
+            transition: background-color 0.2s;
+        }
+        #downloadButton:hover {
+            background-color: #0033A0;
+        }
+        #fileList {
+            max-height: 120px;
+            overflow-y: auto;
+            border: 1px solid #005B99;
+            border-radius: 4px;
+            padding: 10px;
+            font-size: 12px;
+            background-color: #FFFFFF;
+        }
+        .file-item {
+            margin-bottom: 5px;
+        }
+        .thumbnail-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .thumbnail {
+            max-width: 60px;
+            max-height: 60px;
+            object-fit: contain;
+            border: 1px solid #005B99;
+            border-radius: 4px;
+        }
+        .base64-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            font-size: 12px;
+            border: 1px solid #005B99;
+            border-radius: 4px;
+            resize: vertical;
+            background-color: #FFFFFF;
+        }
+        .hidden {
+            display: none;
+        }
+        .mode-specific {
+            display: none;
+        }
+        .controls div {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        label {
+            font-size: 14px;
+            color: #0033A0;
+            font-weight: 500;
+            min-width: 80px;
+        }
+        input[type="number"] {
+            width: 100px;
+            padding: 6px;
+            font-size: 14px;
+            border: 1px solid #005B99;
+            border-radius: 4px;
+            background-color: #FFFFFF;
+        }
+        input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+        .mode-buttons, .dimension-buttons, .size-buttons, .quality-buttons, .format-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .mode-button, .dimension-button, .size-button, .quality-button, .format-button {
+            font-size: 14px;
+            padding: 8px 16px;
+            cursor: pointer;
+            background-color: #E6F0FA;
+            border: 1px solid #005B99;
+            border-radius: 4px;
+            color: #005B99;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .mode-button.active, .dimension-button.active, .size-button.active, .quality-button.active, .format-button.active {
+            background-color: #0033A0;
+            color: #FFFFFF;
+            border-color: #0033A0;
+        }
+        .mode-button:hover, .dimension-button:hover, .size-button:hover, .quality-button:hover, .format-button:hover {
+            background-color: #005B99;
+            color: #FFFFFF;
+        }
+        .progress-container {
+            display: none;
+            margin-top: 10px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 16px;
+            background-color: #E6F0FA;
+            border: 1px solid #005B99;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #005B99;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .progress-text {
+            font-size: 12px;
+            color: #0033A0;
+            text-align: center;
+            margin-top: 5px;
+        }
+        .error-message {
+            display: none;
+            background-color: #ffe6e6;
+            border: 1px solid #ff3333;
+            padding: 10px;
+            border-radius: 4px;
+            color: #ff3333;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 200px;
+            background-color: #005B99;
+            color: #FFFFFF;
+            text-align: center;
+            border-radius: 4px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>TENG 圖片處理工具 v1.7</h1>
-        <!-- 其餘 HTML 與 v1.6 相同，省略以節省空間 -->
+        
+        <div class="section">
+            <label>處理模式</label>
+            <div class="mode-buttons">
+                <button class="mode-button active" data-mode="resize" onclick="switchMode('resize')">尺寸調整與格式轉換</button>
+                <button class="mode-button" data-mode="base64" onclick="switchMode('base64')">Base64 互轉</button>
+            </div>
+        </div>
+        
+        <div class="section file-button-container">
+            <div>
+                <label>圖片檔案</label>
+                <button class="file-button" onclick="document.getElementById('imageInput').click()">選擇圖片</button>
+                <input type="file" id="imageInput" accept="image/*,.heic,.heif" multiple class="hidden">
+            </div>
+            <div>
+                <label>資料夾</label>
+                <button class="file-button" onclick="document.getElementById('folderInput').click()">選擇資料夾</button>
+                <input type="file" id="folderInput" webkitdirectory class="hidden">
+            </div>
+            <div id="base64FileInput" class="mode-specific" data-mode="base64">
+                <label>Base64 檔案</label>
+                <button class="file-button" onclick="document.getElementById('base64Input').click()">選擇檔案</button>
+                <input type="file" id="base64Input" accept=".txt" multiple class="hidden">
+            </div>
+            <div>
+                <label>清空</label>
+                <button class="clear-button" onclick="clearFiles()">清空檔案</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3 id="fileListHeader" style="margin: 0; font-size: 16px; color: #0033A0;">已選擇的檔案：0 張</h3>
+            <div id="fileList"></div>
+        </div>
+        
+        <div id="resizeOptions" class="section mode-specific controls" data-mode="resize">
+            <div>
+                <label>尺寸設定</label>
+                <div class="dimension-buttons">
+                    <button class="dimension-button active" data-mode="width" onclick="switchDimensionMode('width')">固定寬度</button>
+                    <button class="dimension-button" data-mode="height" onclick="switchDimensionMode('height')">固定高度</button>
+                    <button class="dimension-button" data-mode="both" onclick="switchDimensionMode('both')">寬度與高度</button>
+                </div>
+            </div>
+            <div id="widthContainer">
+                <label>寬度 (px)</label>
+                <div class="size-buttons">
+                    <button class="size-button" data-value="256" onclick="setSize('width', '256')">256</button>
+                    <button class="size-button" data-value="512" onclick="setSize('width', '512')">512</button>
+                    <button class="size-button active" data-value="1024" onclick="setSize('width', '1024')">1024</button>
+                    <button class="size-button" data-value="1280" onclick="setSize('width', '1280')">1280</button>
+                    <button class="size-button" data-value="custom" onclick="setSize('width', 'custom')">自訂</button>
+                </div>
+                <input type="number" id="widthInput" min="1" class="hidden" placeholder="輸入寬度">
+            </div>
+            <div id="heightContainer" class="hidden">
+                <label>高度 (px)</label>
+                <div class="size-buttons">
+                    <button class="size-button" data-value="256" onclick="setSize('height', '256')">256</button>
+                    <button class="size-button" data-value="512" onclick="setSize('height', '512')">512</button>
+                    <button class="size-button active" data-value="1024" onclick="setSize('height', '1024')">1024</button>
+                    <button class="size-button" data-value="1280" onclick="setSize('height', '1280')">1280</button>
+                    <button class="size-button" data-value="custom" onclick="setSize('height', 'custom')">自訂</button>
+                </div>
+                <input type="number" id="heightInput" min="1" class="hidden" placeholder="輸入高度">
+            </div>
+            <div>
+                <label>保持比例</label>
+                <input type="checkbox" id="aspectRatio" checked onchange="updateDimensions()">
+            </div>
+            <div id="qualityContainer">
+                <label>品質</label>
+                <div class="quality-buttons">
+                    <button class="quality-button" data-value="0.5" onclick="setQuality('0.5')">50%</button>
+                    <button class="quality-button" data-value="0.7" onclick="setQuality('0.7')">70%</button>
+                    <button class="quality-button active" data-value="0.9" onclick="setQuality('0.9')">90%</button>
+                    <button class="quality-button" data-value="0.95" onclick="setQuality('0.95')">95%</button>
+                    <button class="quality-button" data-value="custom" onclick="setQuality('custom')">自訂</button>
+                </div>
+                <input type="number" id="qualityInput" min="0" max="100" class="hidden" placeholder="0-100">
+            </div>
+        </div>
+        
+        <div id="base64Input" class="section mode-specific" data-mode="base64">
+            <label>Base64 字串</label>
+            <textarea id="base64Text" placeholder="輸入 Base64 字串（例如 data:image/jpeg;base64,...）"></textarea>
+        </div>
+        
+        <div class="section">
+            <label>輸出格式</label>
+            <div class="format-buttons">
+                <button class="format-button active" data-value="image/jpeg" onclick="setFormat('image/jpeg')">JPEG</button>
+                <button class="format-button" data-value="image/png" onclick="setFormat('image/png')">PNG</button>
+                <button class="format-button" data-value="image/webp" onclick="setFormat('image/webp')">WebP</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="file-button-container">
+                <button id="resizeButton" class="process-button mode-specific" data-mode="resize" onclick="processResize()">調整尺寸與格式</button>
+                <button id="toBase64Button" class="process-button mode-specific" data-mode="base64" onclick="processImageToBase64()">圖片轉 Base64</button>
+                <button id="fromBase64Button" class="process-button mode-specific" data-mode="base64" onclick="processBase64ToImage()">Base64 轉圖片</button>
+            </div>
+        </div>
+        
+        <div class="section progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">處理中：0/0</div>
+        </div>
+        
+        <div id="errorMessage" class="error-message"></div>
+        
+        <div class="section">
+            <button id="downloadButton">下載結果</button>
+        </div>
+        
+        <div class="section">
+            <h3 style="margin: 0; font-size: 16px; color: #0033A0;">縮圖預覽</h3>
+            <div id="previewContainer" class="thumbnail-container"></div>
+        </div>
+        
+        <div id="base64Output" class="section mode-specific" data-mode="base64">
+            <h3 style="margin: 0; font-size: 16px; color: #0033A0;">Base64 內容</h3>
+            <div id="base64OutputContainer"></div>
+        </div>
+        
+        <div class="tooltip">
+            <span style="font-size: 12px; color: #005B99;">使用說明</span>
+            <span class="tooltip-text">支援圖片尺寸調整、格式轉換（尺寸調整預設 JPEG，Base64 模式預設 PNG，品質 90%）及 Base64 互轉。HEIC/HEIF 支援，多檔案打包為 ZIP。請勿分享敏感 Base64 字串。</span>
+        </div>
     </div>
 
     <script>
@@ -67,7 +425,6 @@
             document.querySelectorAll('.dimension-button').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.mode === mode);
             });
-            // 根據模式顯示/隱藏寬度與高度選單
             document.getElementById('widthContainer').classList.toggle('hidden', mode === 'height');
             document.getElementById('heightContainer').classList.toggle('hidden', mode === 'width');
             updateDimensionInputs();
