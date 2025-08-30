@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TENG 圖片處理工具 v1.1</title>
-    <!-- 內嵌外部庫 -->
-    <script src="libs/heic2any.min.js"></script>
-    <script src="libs/jszip.min.js"></script>
-    <script src="libs/FileSaver.min.js"></script>
+    <title>TENG 圖片處理工具 v1.3</title>
+    <!-- 使用 CDN 載入外部庫 -->
+    <script src="https://unpkg.com/heic2any@0.0.4/dist/heic2any.min.js"></script>
+    <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -96,11 +96,11 @@
         .controls div {
             margin: 5px;
         }
-        .mode-buttons {
+        .mode-buttons, .dimension-buttons {
             display: flex;
             gap: 10px;
         }
-        .mode-button {
+        .mode-button, .dimension-button {
             font-size: 16px;
             padding: 8px 16px;
             cursor: pointer;
@@ -108,7 +108,7 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
-        .mode-button.active {
+        .mode-button.active, .dimension-button.active {
             background-color: #d0d0d0;
             border-color: #999;
         }
@@ -149,7 +149,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>TENG 圖片處理工具 v1.1</h1>
+        <h1>TENG 圖片處理工具 v1.3</h1>
         
         <div>
             <label>選擇處理模式:</label>
@@ -189,37 +189,37 @@
         <div id="resizeOptions" class="mode-specific controls" data-mode="resize">
             <div>
                 <label>尺寸設定:</label>
-                <select id="dimensionMode" onchange="toggleDimensionInputs()">
-                    <option value="width" selected>固定寬度</option>
-                    <option value="height">固定高度</option>
-                    <option value="both">寬度與高度</option>
-                </select>
+                <div class="dimension-buttons">
+                    <button class="dimension-button active" data-mode="width" onclick="switchDimensionMode('width')">固定寬度</button>
+                    <button class="dimension-button" data-mode="height" onclick="switchDimensionMode('height')">固定高度</button>
+                    <button class="dimension-button" data-mode="both" onclick="switchDimensionMode('both')">寬度與高度</button>
+                </div>
             </div>
             <div id="widthContainer">
                 <label>寬度 (px):</label>
-                <select id="widthSelect" onchange="toggleCustomInput('width')">
+                <select id="widthSelect" onchange="toggleCustomInput('width'); updateDimensions();">
                     <option value="256">256</option>
                     <option value="512">512</option>
                     <option value="1024" selected>1024</option>
                     <option value="1280">1280</option>
                     <option value="custom">自訂</option>
                 </select>
-                <input type="number" id="widthInput" min="1" class="hidden" placeholder="輸入寬度">
+                <input type="number" id="widthInput" min="1" class="hidden" placeholder="輸入寬度" oninput="updateDimensions()">
             </div>
             <div id="heightContainer" class="hidden">
                 <label>高度 (px):</label>
-                <select id="heightSelect" onchange="toggleCustomInput('height')">
+                <select id="heightSelect" onchange="toggleCustomInput('height'); updateDimensions();">
                     <option value="256">256</option>
                     <option value="512">512</option>
                     <option value="1024" selected>1024</option>
                     <option value="1280">1280</option>
                     <option value="custom">自訂</option>
                 </select>
-                <input type="number" id="heightInput" min="1" class="hidden" placeholder="輸入高度">
+                <input type="number" id="heightInput" min="1" class="hidden" placeholder="輸入高度" oninput="updateDimensions()">
             </div>
             <div>
                 <label>保持比例:</label>
-                <input type="checkbox" id="aspectRatio" checked>
+                <input type="checkbox" id="aspectRatio" checked onchange="updateDimensions()">
             </div>
             <div id="qualityContainer">
                 <label>品質 (JPEG/WebP):</label>
@@ -286,6 +286,7 @@
         let base64Data = [];
         let downloadBlob = null;
         let downloadFileName = '';
+        let currentDimensionMode = 'width';
 
         // 初始化模式
         switchMode('resize');
@@ -298,12 +299,23 @@
             document.querySelectorAll('.mode-specific').forEach(el => {
                 el.style.display = el.dataset.mode === mode ? 'block' : 'none';
             });
-            // 清空現有資料
             clearFiles();
             if (mode === 'resize') {
-                toggleDimensionInputs();
+                switchDimensionMode(currentDimensionMode);
                 toggleQualityContainer();
             }
+        }
+
+        // 尺寸模式切換
+        function switchDimensionMode(mode) {
+            currentDimensionMode = mode;
+            document.querySelectorAll('.dimension-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+            document.getElementById('widthContainer').classList.toggle('hidden', mode === 'height');
+            document.getElementById('heightContainer').classList.toggle('hidden', mode === 'width');
+            updateDimensionInputs();
+            updateFileList();
         }
 
         // 清空檔案
@@ -481,13 +493,13 @@
                 if (mode === 'resize' && item.type === 'image') {
                     const widthSelect = document.getElementById('widthSelect').value;
                     const heightSelect = document.getElementById('heightSelect').value;
-                    const widthInput = parseInt(document.getElementById('widthInput').value);
-                    const heightInput = parseInt(document.getElementById('heightInput').value);
-                    const dimensionMode = document.getElementById('dimensionMode').value;
+                    const widthInput = parseInt(document.getElementById('widthInput').value) || item.img.width;
+                    const heightInput = parseInt(document.getElementById('heightInput').value) || item.img.height;
+                    const dimensionMode = currentDimensionMode;
                     const aspectRatio = document.getElementById('aspectRatio').checked;
 
-                    let width = widthSelect === 'custom' ? (widthInput || item.img.width) : parseInt(widthSelect);
-                    let height = heightSelect === 'custom' ? (heightInput || item.img.height) : parseInt(heightSelect);
+                    let width = widthSelect === 'custom' ? widthInput : parseInt(widthSelect);
+                    let height = heightSelect === 'custom' ? heightInput : parseInt(heightSelect);
 
                     if (aspectRatio) {
                         const ratio = item.img.height / item.img.width;
@@ -511,10 +523,10 @@
         }
 
         function toggleDimensionInputs() {
-            const mode = document.getElementById('dimensionMode').value;
-            document.getElementById('widthContainer').classList.toggle('hidden', mode === 'height');
-            document.getElementById('heightContainer').classList.toggle('hidden', mode === 'width');
+            document.getElementById('widthContainer').classList.toggle('hidden', currentDimensionMode === 'height');
+            document.getElementById('heightContainer').classList.toggle('hidden', currentDimensionMode === 'width');
             updateDimensionInputs();
+            updateFileList();
         }
 
         function toggleCustomInput(type) {
@@ -546,35 +558,37 @@
         }
 
         function updateDimensions() {
-            if (!originalImages[0] || !document.getElementById('aspectRatio').checked) return;
+            if (!originalImages[0]) return;
 
-            const mode = document.getElementById('dimensionMode').value;
             const widthSelect = document.getElementById('widthSelect').value;
             const heightSelect = document.getElementById('heightSelect').value;
             const widthInput = parseInt(document.getElementById('widthInput').value);
             const heightInput = parseInt(document.getElementById('heightInput').value);
-            const ratio = originalImages[0].img.height / originalImages[0].img.width;
+            const aspectRatio = document.getElementById('aspectRatio').checked;
 
-            let width = widthSelect === 'custom' ? widthInput : parseInt(widthSelect);
-            let height = heightSelect === 'custom' ? heightInput : parseInt(heightSelect);
+            let width = widthSelect === 'custom' ? (widthInput || originalImages[0].img.width) : parseInt(widthSelect);
+            let height = heightSelect === 'custom' ? (heightInput || originalImages[0].img.height) : parseInt(heightSelect);
 
-            if (mode === 'width' && width > 0) {
-                document.getElementById('heightSelect').value = 'custom';
-                document.getElementById('heightInput').value = Math.round(width * ratio);
-                toggleCustomInput('height');
-            } else if (mode === 'height' && height > 0) {
-                document.getElementById('widthSelect').value = 'custom';
-                document.getElementById('widthInput').value = Math.round(height / ratio);
-                toggleCustomInput('width');
-            } else if (mode === 'both') {
-                if (width > 0) {
+            if (aspectRatio) {
+                const ratio = originalImages[0].img.height / originalImages[0].img.width;
+                if (currentDimensionMode === 'width' && width > 0) {
                     document.getElementById('heightSelect').value = 'custom';
                     document.getElementById('heightInput').value = Math.round(width * ratio);
                     toggleCustomInput('height');
-                } else if (height > 0) {
+                } else if (currentDimensionMode === 'height' && height > 0) {
                     document.getElementById('widthSelect').value = 'custom';
                     document.getElementById('widthInput').value = Math.round(height / ratio);
                     toggleCustomInput('width');
+                } else if (currentDimensionMode === 'both') {
+                    if (width > 0) {
+                        document.getElementById('heightSelect').value = 'custom';
+                        document.getElementById('heightInput').value = Math.round(width * ratio);
+                        toggleCustomInput('height');
+                    } else if (height > 0) {
+                        document.getElementById('widthSelect').value = 'custom';
+                        document.getElementById('widthInput').value = Math.round(height / ratio);
+                        toggleCustomInput('width');
+                    }
                 }
             }
             updateFileList();
@@ -584,8 +598,6 @@
         document.getElementById('heightInput').addEventListener('input', updateDimensions);
         document.getElementById('widthSelect').addEventListener('change', updateDimensions);
         document.getElementById('heightSelect').addEventListener('change', updateDimensions);
-        document.getElementById('dimensionMode').addEventListener('change', toggleDimensionInputs);
-        document.getElementById('aspectRatio').addEventListener('change', updateDimensions);
         document.getElementById('qualitySelect').addEventListener('change', () => toggleCustomInput('quality'));
 
         function updateProgress(current, total) {
@@ -605,7 +617,6 @@
             }
 
             const format = document.getElementById('formatSelect').value;
-            const mode = document.getElementById('dimensionMode').value;
             const widthSelect = document.getElementById('widthSelect').value;
             const heightSelect = document.getElementById('heightSelect').value;
             const widthInput = parseInt(document.getElementById('widthInput').value);
@@ -635,11 +646,11 @@
 
                 if (aspectRatio) {
                     const ratio = img.height / img.width;
-                    if (mode === 'width' && widthSelect !== '') {
+                    if (currentDimensionMode === 'width' && widthSelect !== '') {
                         height = Math.round(width * ratio);
-                    } else if (mode === 'height' && heightSelect !== '') {
+                    } else if (currentDimensionMode === 'height' && heightSelect !== '') {
                         width = Math.round(height / ratio);
-                    } else if (mode === 'both' && widthSelect !== '' && heightSelect !== '') {
+                    } else if (currentDimensionMode === 'both' && widthSelect !== '' && heightSelect !== '') {
                         height = Math.round(width * ratio);
                     } else if (!widthInput && !heightInput) {
                         width = img.width;
