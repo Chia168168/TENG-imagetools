@@ -123,7 +123,7 @@
             background-color: #FFFFFF;
         }
         .hidden {
-            display: none;
+            display: none !important;
         }
         .mode-specific {
             display: none;
@@ -257,14 +257,19 @@
                 <input type="file" id="imageInput" accept="image/*,.heic,.heif" multiple class="hidden">
             </div>
             <div>
-                <label>資料夾</label>
-                <button class="file-button" onclick="document.getElementById('folderInput').click()">選擇資料夾</button>
-                <input type="file" id="folderInput" webkitdirectory class="hidden">
+                <label>圖片資料夾</label>
+                <button class="file-button" onclick="document.getElementById('imageFolderInput').click()">選擇資料夾</button>
+                <input type="file" id="imageFolderInput" webkitdirectory accept="image/*,.heic,.heif" class="hidden">
             </div>
             <div id="base64FileInput" class="mode-specific" data-mode="base64">
                 <label>Base64 檔案</label>
                 <button class="file-button" onclick="document.getElementById('base64Input').click()">選擇檔案</button>
                 <input type="file" id="base64Input" accept=".txt" multiple class="hidden">
+            </div>
+            <div id="base64FolderInput" class="mode-specific" data-mode="base64">
+                <label>Base64 資料夾</label>
+                <button class="file-button" onclick="document.getElementById('base64FolderInput').click()">選擇資料夾</button>
+                <input type="file" id="base64FolderInput" webkitdirectory accept=".txt" class="hidden">
             </div>
             <div>
                 <label>清空</label>
@@ -297,7 +302,7 @@
                 </div>
                 <input type="number" id="widthInput" min="1" class="hidden" placeholder="輸入寬度">
             </div>
-            <div id="heightContainer" class="hidden">
+            <div id="heightContainer">
                 <label>高度 (px)</label>
                 <div class="size-buttons">
                     <button class="size-button" data-value="256" onclick="setSize('height', '256')">256</button>
@@ -425,19 +430,10 @@
             document.querySelectorAll('.dimension-button').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.mode === mode);
             });
-            // 明確設置寬度和高度選單的顯示/隱藏
             const widthContainer = document.getElementById('widthContainer');
             const heightContainer = document.getElementById('heightContainer');
-            if (mode === 'width') {
-                widthContainer.style.display = 'flex';
-                heightContainer.style.display = 'none';
-            } else if (mode === 'height') {
-                widthContainer.style.display = 'none';
-                heightContainer.style.display = 'flex';
-            } else if (mode === 'both') {
-                widthContainer.style.display = 'flex';
-                heightContainer.style.display = 'flex';
-            }
+            widthContainer.classList.toggle('hidden', mode === 'height');
+            heightContainer.classList.toggle('hidden', mode === 'width');
             updateDimensionInputs();
             updateFileList();
         }
@@ -506,7 +502,6 @@
             document.querySelectorAll('.format-button').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.value === currentFormatValue);
             });
-            switchDimensionMode(currentDimensionMode);
             updateFileList();
         }
 
@@ -522,8 +517,9 @@
 
         // 處理檔案輸入
         document.getElementById('imageInput').addEventListener('change', e => handleFileSelect(e, true, 'image'));
-        document.getElementById('folderInput').addEventListener('change', e => handleFileSelect(e, true, 'image'));
+        document.getElementById('imageFolderInput').addEventListener('change', e => handleFileSelect(e, true, 'image'));
         document.getElementById('base64Input').addEventListener('change', e => handleFileSelect(e, true, 'base64'));
+        document.getElementById('base64FolderInput').addEventListener('change', e => handleFileSelect(e, true, 'base64'));
 
         // 下載按鈕
         document.getElementById('downloadButton').addEventListener('click', () => {
@@ -685,9 +681,6 @@
                             width = Math.round(height / ratio);
                         } else if (dimensionMode === 'both' && currentWidthValue !== '' && currentHeightValue !== '') {
                             height = Math.round(width * ratio);
-                        } else if (!widthInput && !heightInput) {
-                            width = item.img.width;
-                            height = item.img.height;
                         }
                     } else if (dimensionMode === 'width') {
                         height = item.img.height;
@@ -732,45 +725,43 @@
         function updateDimensions() {
             if (!originalImages[0]) return;
 
-            const widthInput = parseInt(document.getElementById('widthInput').value) || originalImages[0].img.width;
-            const heightInput = parseInt(document.getElementById('heightInput').value) || originalImages[0].img.height;
+            const widthInput = parseInt(document.getElementById('widthInput').value) || 0;
+            const heightInput = parseInt(document.getElementById('heightInput').value) || 0;
             const aspectRatio = document.getElementById('aspectRatio').checked;
 
-            let width = currentWidthValue === 'custom' ? widthInput : parseInt(currentWidthValue);
-            let height = currentHeightValue === 'custom' ? heightInput : parseInt(currentHeightValue);
+            let width = currentWidthValue === 'custom' ? (widthInput || originalImages[0].img.width) : parseInt(currentWidthValue);
+            let height = currentHeightValue === 'custom' ? (heightInput || originalImages[0].img.height) : parseInt(currentHeightValue);
 
             if (aspectRatio) {
                 const ratio = originalImages[0].img.height / originalImages[0].img.width;
                 if (currentDimensionMode === 'width' && width > 0) {
                     currentHeightValue = 'custom';
-                    document.getElementById('heightInput').value = Math.round(width * ratio);
+                    height = Math.round(width * ratio);
+                    document.getElementById('heightInput').value = height;
+                    document.querySelectorAll('#heightContainer .size-button').forEach(btn => {
+                        btn.classList.toggle('active', btn.dataset.value === 'custom');
+                    });
+                    if (!document.getElementById('heightContainer').classList.contains('hidden')) {
+                        document.getElementById('heightInput').classList.remove('hidden');
+                    }
+                } else if (currentDimensionMode === 'height' && height > 0) {
+                    currentWidthValue = 'custom';
+                    width = Math.round(height / ratio);
+                    document.getElementById('widthInput').value = width;
+                    document.querySelectorAll('#widthContainer .size-button').forEach(btn => {
+                        btn.classList.toggle('active', btn.dataset.value === 'custom');
+                    });
+                    if (!document.getElementById('widthContainer').classList.contains('hidden')) {
+                        document.getElementById('widthInput').classList.remove('hidden');
+                    }
+                } else if (currentDimensionMode === 'both' && width > 0) {
+                    currentHeightValue = 'custom';
+                    height = Math.round(width * ratio);
+                    document.getElementById('heightInput').value = height;
                     document.querySelectorAll('#heightContainer .size-button').forEach(btn => {
                         btn.classList.toggle('active', btn.dataset.value === 'custom');
                     });
                     document.getElementById('heightInput').classList.remove('hidden');
-                } else if (currentDimensionMode === 'height' && height > 0) {
-                    currentWidthValue = 'custom';
-                    document.getElementById('widthInput').value = Math.round(height / ratio);
-                    document.querySelectorAll('#widthContainer .size-button').forEach(btn => {
-                        btn.classList.toggle('active', btn.dataset.value === 'custom');
-                    });
-                    document.getElementById('widthInput').classList.remove('hidden');
-                } else if (currentDimensionMode === 'both') {
-                    if (width > 0) {
-                        currentHeightValue = 'custom';
-                        document.getElementById('heightInput').value = Math.round(width * ratio);
-                        document.querySelectorAll('#heightContainer .size-button').forEach(btn => {
-                            btn.classList.toggle('active', btn.dataset.value === 'custom');
-                        });
-                        document.getElementById('heightInput').classList.remove('hidden');
-                    } else if (height > 0) {
-                        currentWidthValue = 'custom';
-                        document.getElementById('widthInput').value = Math.round(height / ratio);
-                        document.querySelectorAll('#widthContainer .size-button').forEach(btn => {
-                            btn.classList.toggle('active', btn.dataset.value === 'custom');
-                        });
-                        document.getElementById('widthInput').classList.remove('hidden');
-                    }
                 }
             }
             updateFileList();
@@ -832,9 +823,6 @@
                         width = Math.round(height / ratio);
                     } else if (currentDimensionMode === 'both' && currentWidthValue !== '' && currentHeightValue !== '') {
                         height = Math.round(width * ratio);
-                    } else if (!widthInput && !heightInput) {
-                        width = img.width;
-                        height = img.height;
                     }
                 } else if (currentDimensionMode === 'width') {
                     height = img.height;
@@ -907,16 +895,26 @@
                 processedCount++;
                 updateProgress(processedCount, totalImages);
 
-                const base64String = item.base64;
-                base64Data.push({ name: item.file.name, base64: base64String });
+                const canvas = document.createElement('canvas');
+                canvas.width = item.img.width;
+                canvas.height = item.img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(item.img, 0, 0);
 
-                const outputDiv = document.createElement('div');
-                outputDiv.className = 'file-item';
-                outputDiv.innerHTML = `<strong>${item.file.name}</strong><br><textarea readonly>${base64String}</textarea>`;
-                document.getElementById('base64OutputContainer').appendChild(outputDiv);
+                try {
+                    const base64String = canvas.toDataURL(currentFormatValue);
+                    base64Data.push({ name: item.file.name, base64: base64String });
 
-                if (totalImages > 1) {
-                    zip.file(`${item.file.name}.txt`, base64String);
+                    const outputDiv = document.createElement('div');
+                    outputDiv.className = 'file-item';
+                    outputDiv.innerHTML = `<strong>${item.file.name}</strong><br><textarea readonly>${base64String}</textarea>`;
+                    document.getElementById('base64OutputContainer').appendChild(outputDiv);
+
+                    if (totalImages > 1) {
+                        zip.file(`${item.file.name}.txt`, base64String);
+                    }
+                } catch (err) {
+                    showError(`圖片 ${item.file.name} 轉 Base64 失敗：${err.message}`);
                 }
             }
 
