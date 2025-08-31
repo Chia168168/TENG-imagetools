@@ -253,22 +253,22 @@
         <div class="section file-button-container">
             <div>
                 <label>圖片檔案</label>
-                <button class="file-button" onclick="document.getElementById('imageInput').click()">選擇圖片</button>
+                <button class="file-button" onclick="triggerFileInput('imageInput')">選擇圖片</button>
                 <input type="file" id="imageInput" accept="image/*,.heic,.heif" multiple class="hidden">
             </div>
             <div>
                 <label>圖片資料夾</label>
-                <button class="file-button" onclick="document.getElementById('imageFolderInput').click()">選擇資料夾</button>
+                <button class="file-button" onclick="triggerFileInput('imageFolderInput')">選擇資料夾</button>
                 <input type="file" id="imageFolderInput" webkitdirectory accept="image/*,.heic,.heif" class="hidden">
             </div>
             <div id="base64FileInput" class="mode-specific" data-mode="base64">
                 <label>Base64 檔案</label>
-                <button class="file-button" onclick="document.getElementById('base64Input').click()">選擇檔案</button>
+                <button class="file-button" onclick="triggerFileInput('base64Input')">選擇檔案</button>
                 <input type="file" id="base64Input" accept=".txt" multiple class="hidden">
             </div>
             <div id="base64FolderInput" class="mode-specific" data-mode="base64">
                 <label>Base64 資料夾</label>
-                <button class="file-button" onclick="document.getElementById('base64FolderInput').click()">選擇資料夾</button>
+                <button class="file-button" onclick="triggerFileInput('base64FolderInput')">選擇資料夾</button>
                 <input type="file" id="base64FolderInput" webkitdirectory class="hidden">
             </div>
             <div>
@@ -377,7 +377,7 @@
         
         <div class="tooltip">
             <span style="font-size: 12px; color: #005B99;">使用說明</span>
-            <span class="tooltip-text">支援圖片尺寸調整、格式轉換（尺寸調整預設 JPEG，Base64 模式預設 PNG，品質 90%）及 Base64 互轉。HEIC/HEIF 支援，多檔案打包為 ZIP。請勿分享敏感 Base64 字串。</span>
+            <span class="tooltip-text">支援圖片尺寸調整、格式轉換（尺寸調整預設 JPEG，Base64 模式預設 PNG，品質 90%）及 Base64 互轉。HEIC/HEIF 支援，多檔案打包為 ZIP。請勿分享敏感 Base64 字串。資料夾選擇僅支援 Chrome/Safari。</span>
         </div>
     </div>
 
@@ -400,6 +400,17 @@
                 clearTimeout(timeout);
                 timeout = setTimeout(() => func.apply(this, args), wait);
             };
+        }
+
+        // 觸發檔案輸入
+        function triggerFileInput(inputId) {
+            const input = document.getElementById(inputId);
+            if (input) {
+                console.log(`Triggering file input for: ${inputId}`); // 調試日誌
+                input.click();
+            } else {
+                showError(`無法觸發檔案選擇（${inputId}），請檢查瀏覽器支援或重新載入頁面！`);
+            }
         }
 
         // 初始化模式
@@ -512,7 +523,7 @@
             errorDiv.style.display = 'block';
             setTimeout(() => {
                 errorDiv.style.display = 'none';
-            }, 3000);
+            }, 5000); // 延長顯示時間以便閱讀
         }
 
         // 處理檔案輸入
@@ -525,6 +536,8 @@
         document.getElementById('downloadButton').addEventListener('click', () => {
             if (downloadBlob && downloadFileName) {
                 saveAs(downloadBlob, downloadFileName);
+            } else {
+                showError('無可下載的檔案，請先處理檔案！');
             }
         });
 
