@@ -269,7 +269,7 @@
             <div id="base64FolderInput" class="mode-specific" data-mode="base64">
                 <label>Base64 資料夾</label>
                 <button class="file-button" onclick="document.getElementById('base64FolderInput').click()">選擇資料夾</button>
-                <input type="file" id="base64FolderInput" webkitdirectory accept=".txt" class="hidden">
+                <input type="file" id="base64FolderInput" webkitdirectory class="hidden">
             </div>
             <div>
                 <label>清空</label>
@@ -530,13 +530,34 @@
 
         function handleFileSelect(e, append = false, type = 'image') {
             const files = e.target.files;
-            if (!files || files.length === 0) return;
+            if (!files || files.length === 0) {
+                showError('未選擇任何檔案，請重新選擇！');
+                return;
+            }
 
             if (!append) {
                 clearFiles();
             }
 
-            Array.from(files).forEach((file, index) => {
+            let validFiles = Array.from(files);
+            if (type === 'base64') {
+                validFiles = validFiles.filter(file => file.name.toLowerCase().endsWith('.txt'));
+                if (validFiles.length === 0) {
+                    showError('Base64 資料夾中無 .txt 檔案，請選擇包含 .txt 的資料夾！');
+                    return;
+                }
+            } else if (type === 'image') {
+                validFiles = validFiles.filter(file => {
+                    const ext = file.name.toLowerCase();
+                    return ext.match(/\.(jpeg|jpg|png|heic|heif)$/);
+                });
+                if (validFiles.length === 0) {
+                    showError('圖片資料夾中無支援的圖片檔案（JPEG、PNG、HEIC、HEIF），請重新選擇！');
+                    return;
+                }
+            }
+
+            validFiles.forEach((file, index) => {
                 if (originalImages.some(img => img.file.name === file.name && img.file.size === file.size)) {
                     showError(`檔案 ${file.name} 已存在，請選擇其他檔案！`);
                     return;
@@ -601,6 +622,11 @@
 
         async function handleBase64FileLoad(file, text, index) {
             let base64String = text.trim();
+            if (!base64String) {
+                showError(`Base64 檔案 ${file.name} 內容為空，請檢查檔案！`);
+                return;
+            }
+
             const prefixes = [
                 'data:image/jpeg;base64,',
                 'data:image/png;base64,',
@@ -608,7 +634,7 @@
             ];
 
             if (base64String.startsWith('data:image/')) {
-                tryImageLoad(file, base64String, index);
+                await tryImageLoad(file, base64String, index);
                 return;
             }
 
