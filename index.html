@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TENG 圖片處理工具 v1.7</title>
+    <title>TENG 圖片處理工具 v1.8</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/heic2any@0.0.4/dist/heic2any.min.js"></script>
     <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -240,7 +240,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>TENG 圖片處理工具 v1.7</h1>
+        <h1>TENG 圖片處理工具 v1.8</h1>
         
         <div class="section">
             <label>處理模式</label>
@@ -377,7 +377,7 @@
         
         <div class="tooltip">
             <span style="font-size: 12px; color: #005B99;">使用說明</span>
-            <span class="tooltip-text">支援圖片尺寸調整、格式轉換（尺寸調整預設 JPEG，Base64 模式預設 PNG，品質 90%）及 Base64 互轉。HEIC/HEIF 支援，多檔案打包為 ZIP。請勿分享敏感 Base64 字串。資料夾選擇僅支援 Chrome/Safari。</span>
+            <span class="tooltip-text">支援圖片尺寸調整、格式轉換（尺寸調整預設 JPEG，Base64 模式預設 PNG，品質 90%）及 Base64 互轉。HEIC/HEIF 支援，多檔案打包為 ZIP。請勿分享敏感 Base64 字串。資料夾選擇僅支援 Chrome、Edge 和 Safari。</span>
         </div>
     </div>
 
@@ -393,6 +393,13 @@
         let currentQualityValue = '0.9';
         let currentFormatValue = 'image/jpeg';
 
+        // 檢查瀏覽器是否支援 webkitdirectory
+        function checkDirectorySupport() {
+            const input = document.createElement('input');
+            input.setAttribute('webkitdirectory', '');
+            return 'webkitdirectory' in input;
+        }
+
         // 防抖函數
         function debounce(func, wait) {
             let timeout;
@@ -404,17 +411,31 @@
 
         // 觸發檔案輸入
         function triggerFileInput(inputId) {
+            const mode = document.querySelector('.mode-button.active').dataset.mode;
+            if (inputId === 'base64FolderInput' && mode !== 'base64') {
+                showError('請先切換到「Base64 互轉」模式！');
+                return;
+            }
             const input = document.getElementById(inputId);
             if (input) {
-                console.log(`Triggering file input for: ${inputId}`); // 調試日誌
+                if (inputId === 'base64FolderInput' && !checkDirectorySupport()) {
+                    showError('此瀏覽器不支援資料夾選擇，請使用 Chrome、Edge 或 Safari！');
+                    return;
+                }
+                console.log(`Triggering file input for: ${inputId}`);
                 input.click();
             } else {
-                showError(`無法觸發檔案選擇（${inputId}），請檢查瀏覽器支援或重新載入頁面！`);
+                showError(`無法找到輸入元素（${inputId}），請重新載入頁面！`);
             }
         }
 
         // 初始化模式
-        switchMode('resize');
+        window.onload = function() {
+            switchMode('resize');
+            if (!checkDirectorySupport()) {
+                showError('警告：此瀏覽器不支援資料夾選擇，請使用 Chrome、Edge 或 Safari！');
+            }
+        };
 
         // 模式切換
         function switchMode(mode) {
@@ -523,14 +544,17 @@
             errorDiv.style.display = 'block';
             setTimeout(() => {
                 errorDiv.style.display = 'none';
-            }, 5000); // 延長顯示時間以便閱讀
+            }, 5000);
         }
 
         // 處理檔案輸入
         document.getElementById('imageInput').addEventListener('change', e => handleFileSelect(e, true, 'image'));
         document.getElementById('imageFolderInput').addEventListener('change', e => handleFileSelect(e, true, 'image'));
         document.getElementById('base64Input').addEventListener('change', e => handleFileSelect(e, true, 'base64'));
-        document.getElementById('base64FolderInput').addEventListener('change', e => handleFileSelect(e, true, 'base64'));
+        document.getElementById('base64FolderInput').addEventListener('change', e => {
+            console.log('base64FolderInput change event triggered'); // 調試日誌
+            handleFileSelect(e, true, 'base64');
+        });
 
         // 下載按鈕
         document.getElementById('downloadButton').addEventListener('click', () => {
