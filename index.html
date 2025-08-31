@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TENG 圖片處理工具 v1.8</title>
+    <title>TENG 圖片處理工具 v1.9</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/heic2any@0.0.4/dist/heic2any.min.js"></script>
     <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -240,7 +240,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>TENG 圖片處理工具 v1.8</h1>
+        <h1>TENG 圖片處理工具 v1.9</h1>
         
         <div class="section">
             <label>處理模式</label>
@@ -411,21 +411,25 @@
 
         // 觸發檔案輸入
         function triggerFileInput(inputId) {
-            const mode = document.querySelector('.mode-button.active').dataset.mode;
-            if (inputId === 'base64FolderInput' && mode !== 'base64') {
-                showError('請先切換到「Base64 互轉」模式！');
+            console.log(`Attempting to trigger file input: ${inputId}`);
+            const input = document.getElementById(inputId);
+            if (!input) {
+                console.error(`Input element with ID ${inputId} not found`);
+                showError(`找不到檔案輸入元素（${inputId}），請重新載入頁面！`);
                 return;
             }
-            const input = document.getElementById(inputId);
-            if (input) {
-                if (inputId === 'base64FolderInput' && !checkDirectorySupport()) {
-                    showError('此瀏覽器不支援資料夾選擇，請使用 Chrome、Edge 或 Safari！');
-                    return;
-                }
-                console.log(`Triggering file input for: ${inputId}`);
+            console.log(`Input element found: ${inputId}, type: ${input.type}, display: ${window.getComputedStyle(input).display}`);
+            if (inputId === 'base64FolderInput' && !checkDirectorySupport()) {
+                console.error('Browser does not support webkitdirectory');
+                showError('此瀏覽器不支援資料夾選擇，請使用 Chrome、Edge 或 Safari！');
+                return;
+            }
+            try {
                 input.click();
-            } else {
-                showError(`無法找到輸入元素（${inputId}），請重新載入頁面！`);
+                console.log(`Click event triggered for: ${inputId}`);
+            } catch (err) {
+                console.error(`Failed to trigger click for ${inputId}: ${err.message}`);
+                showError(`無法觸發檔案選擇（${inputId}）：${err.message}`);
             }
         }
 
@@ -435,10 +439,23 @@
             if (!checkDirectorySupport()) {
                 showError('警告：此瀏覽器不支援資料夾選擇，請使用 Chrome、Edge 或 Safari！');
             }
+            // 檢查 base64FolderInput 是否存在並綁定事件
+            const base64FolderInput = document.getElementById('base64FolderInput');
+            if (base64FolderInput) {
+                console.log('base64FolderInput found and event listener attached');
+                base64FolderInput.addEventListener('change', e => {
+                    console.log('base64FolderInput change event triggered');
+                    handleFileSelect(e, true, 'base64');
+                });
+            } else {
+                console.error('base64FolderInput not found on page load');
+                showError('找不到 Base64 資料夾輸入元素，請重新載入頁面！');
+            }
         };
 
         // 模式切換
         function switchMode(mode) {
+            console.log(`Switching to mode: ${mode}`);
             document.querySelectorAll('.mode-button').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.mode === mode);
             });
@@ -539,6 +556,7 @@
 
         // 顯示錯誤訊息
         function showError(message) {
+            console.error(`Error: ${message}`);
             const errorDiv = document.getElementById('errorMessage');
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
@@ -548,13 +566,19 @@
         }
 
         // 處理檔案輸入
-        document.getElementById('imageInput').addEventListener('change', e => handleFileSelect(e, true, 'image'));
-        document.getElementById('imageFolderInput').addEventListener('change', e => handleFileSelect(e, true, 'image'));
-        document.getElementById('base64Input').addEventListener('change', e => handleFileSelect(e, true, 'base64'));
-        document.getElementById('base64FolderInput').addEventListener('change', e => {
-            console.log('base64FolderInput change event triggered'); // 調試日誌
+        document.getElementById('imageInput').addEventListener('change', e => {
+            console.log('imageInput change event triggered');
+            handleFileSelect(e, true, 'image');
+        });
+        document.getElementById('imageFolderInput').addEventListener('change', e => {
+            console.log('imageFolderInput change event triggered');
+            handleFileSelect(e, true, 'image');
+        });
+        document.getElementById('base64Input').addEventListener('change', e => {
+            console.log('base64Input change event triggered');
             handleFileSelect(e, true, 'base64');
         });
+        // base64FolderInput 事件在 window.onload 中綁定
 
         // 下載按鈕
         document.getElementById('downloadButton').addEventListener('click', () => {
@@ -566,6 +590,7 @@
         });
 
         function handleFileSelect(e, append = false, type = 'image') {
+            console.log(`Handling file select for ${type}, files: ${e.target.files.length}`);
             const files = e.target.files;
             if (!files || files.length === 0) {
                 showError('未選擇任何檔案，請重新選擇！');
