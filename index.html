@@ -425,8 +425,19 @@
             document.querySelectorAll('.dimension-button').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.mode === mode);
             });
-            document.getElementById('widthContainer').classList.toggle('hidden', mode === 'height');
-            document.getElementById('heightContainer').classList.toggle('hidden', mode === 'width');
+            // 明確設置寬度和高度選單的顯示/隱藏
+            const widthContainer = document.getElementById('widthContainer');
+            const heightContainer = document.getElementById('heightContainer');
+            if (mode === 'width') {
+                widthContainer.style.display = 'flex';
+                heightContainer.style.display = 'none';
+            } else if (mode === 'height') {
+                widthContainer.style.display = 'none';
+                heightContainer.style.display = 'flex';
+            } else if (mode === 'both') {
+                widthContainer.style.display = 'flex';
+                heightContainer.style.display = 'flex';
+            }
             updateDimensionInputs();
             updateFileList();
         }
@@ -495,6 +506,7 @@
             document.querySelectorAll('.format-button').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.value === currentFormatValue);
             });
+            switchDimensionMode(currentDimensionMode);
             updateFileList();
         }
 
@@ -662,8 +674,8 @@
                     const dimensionMode = currentDimensionMode;
                     const aspectRatio = document.getElementById('aspectRatio').checked;
 
-                    let width = dimensionMode !== 'height' && currentWidthValue === 'custom' ? widthInput : parseInt(currentWidthValue);
-                    let height = dimensionMode !== 'width' && currentHeightValue === 'custom' ? heightInput : parseInt(currentHeightValue);
+                    let width = dimensionMode !== 'height' && currentWidthValue === 'custom' ? widthInput : parseInt(currentWidthValue) || item.img.width;
+                    let height = dimensionMode !== 'width' && currentHeightValue === 'custom' ? heightInput : parseInt(currentHeightValue) || item.img.height;
 
                     if (aspectRatio) {
                         const ratio = item.img.height / item.img.width;
@@ -809,8 +821,8 @@
 
                 const img = item.img;
                 const canvas = document.createElement('canvas');
-                let width = currentWidthValue === 'custom' ? (widthInput || img.width) : parseInt(currentWidthValue);
-                let height = currentHeightValue === 'custom' ? (heightInput || img.height) : parseInt(currentHeightValue);
+                let width = currentWidthValue === 'custom' ? (widthInput || img.width) : parseInt(currentWidthValue) || img.width;
+                let height = currentHeightValue === 'custom' ? (heightInput || img.height) : parseInt(currentHeightValue) || img.height;
 
                 if (aspectRatio) {
                     const ratio = img.height / img.width;
